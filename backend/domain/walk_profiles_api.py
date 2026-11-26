@@ -32,3 +32,16 @@ def match_entrances(data: MatchEntrances, user=Depends(actor)):
         output = service.match_entrances(conn, user, data)
         record(conn, user, 'walk_profiles.match_entrances')
         return output
+
+
+@router.post('/walk_profiles/rematch')
+@router.post('/walk_profiles/recompute')
+@router.post('/walk_profiles/match-now')
+@router.post('/walk_profiles/recommend')
+@router.post('/walk_profiles/alternatives')
+def rematch(data: MatchEntrances, user=Depends(actor)):
+    allow(user, ('operator', 'reviewer'))
+    with transaction() as conn:
+        output = service.rematch(conn, user, data.model_dump(exclude_none=True))
+        record(conn, user, 'walk_profiles.rematch')
+        return output

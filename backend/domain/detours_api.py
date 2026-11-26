@@ -17,6 +17,10 @@ def list_detours(user=Depends(actor)):
 
 
 @router.post('/detours/submit-detour')
+@router.post('/detours/rewalk-detour')
+@router.post('/detours/retest-detour')
+@router.post('/detours/rewalk')
+@router.post('/detours/retest')
 def submit_detour(data: SubmitDetour, user=Depends(actor)):
     allow(user, ('operator', 'reviewer'))
     with transaction() as conn:

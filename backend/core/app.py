@@ -16,6 +16,11 @@ from scripts.seed_demo import seed
 async def lifespan(app):
     from core.db import engine
     metadata.create_all(engine)
+    try:
+        from core.migrate import ensure_columns
+        ensure_columns(engine, metadata)
+    except Exception:
+        logging.getLogger('uvicorn.error').exception('ensure columns failed')
     if SEED_DEMO:
         try:
             seed()

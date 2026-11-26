@@ -51,10 +51,20 @@ Compose 运行 Nginx、Python FastAPI、独立 Redis 消费进程、SQL 数据�
 
 | 业务任务 | FastAPI 路由 | 页面 |
 |---|---|---|
-| 入口设施核验 | `/entrances` /entrances/inspect | `frontend/src/pages/entrances.js` |
-| 绕行偏好卡 | `/walk_profiles` /walk_profiles/draft-profile，/walk_profiles/match-entrances | `frontend/src/pages/walk_profiles.js` |
-| 绕行线路单 | `/detours` /detours/submit-detour，/detours/withdraw-detour | `frontend/src/pages/detours.js` |
-| 导视图签注 | `/map_notes` /map_notes/publish-map | `frontend/src/pages/map_notes.js` |
+| 入口设施核验 | `/entrances` /entrances/inspect，/entrances/close-ramp（关停，幂等；另有 /entrances/shutdown、/entrances/close 等别名与 `/{code}/close` 形态） | `frontend/src/pages/entrances.js` |
+| 绕行偏好卡 | `/walk_profiles` /walk_profiles/draft-profile，/walk_profiles/match-entrances，/walk_profiles/rematch（同步重算） | `frontend/src/pages/walk_profiles.js` |
+| 绕行线路单 | `/detours` /detours/submit-detour，/detours/withdraw-detour（rewalk/retest 别名同义） | `frontend/src/pages/detours.js` |
+| 导视图签注 | `/map_notes` /map_notes/publish-map；`GET /map_notes/effective`（现行图签列表）、`GET /map_notes/guide` 与 `GET /guide`（生效图签+推荐依据对象）、`GET /map_notes/versions` 与 `/map_notes/{code}/versions`（旧版可查） | `frontend/src/pages/map_notes.js` |
+
+### 坡道关停与换版规则
+
+- 入口复查把 `ramp` 改为 `false`（或调用关停接口）即“关停先成”：同一事务内把所有经线路单指向该入口的**现行图签**一次性置为 `state='受阻'`（`blocked/current=true`），旧版快照写入 `map_note_editions`，可经 versions/history 接口查询。
+- 关停与图签发布靠行锁串行裁决：关停先提交后，基于旧坡道状态的 `/map_notes/publish-map` 与 `/detours/submit-detour` 一律 `409`，提示重算并重新走测；不会生成旧图签。
+- 替代入口按原偏好卡从**可通行**（`ramp=true` 且 `condition='现场见证'`）入口用同一 MultiLabelBinarizer 算子重算匹配；没有达到 `minimum` 门槛的候选时 `basis.threshold_met=false`、`recommended=null`，现行图签保留受阻提示。
+- 替代路线必须重新走测：用新的匹配 token 提交新的 `detours` 步测单后才能签发新图签；围挡撤除后的重开不会自动恢复旧受阻图签。
+- 关停幂等：坡道已是关停态或命中同一 `Idempotency-Key`/`idempotency_key` 的重试只回读结果，不重复换版。
+- `GET /map_notes` 的每行附带 `state/current/blocked/superseded` 与 `basis`（推荐依据）等兼容字段，导视图页面直接展示生效状态与依据。
+
 
 SQL 实体与约束在 `backend/domain` 下维护。前端使用原生 ES modules。核心算子为 MultiLabelBinarizer + 加权距离。标记以 MultiLabelBinarizer 编为 0/1，匹配分为 1-实际冲突权重/偏好总权重。结果按分值和坡道通行排序。
 

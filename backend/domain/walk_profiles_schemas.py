@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, ConfigDict, FiniteFloat, StringConstraints
 
@@ -12,5 +12,7 @@ class DraftProfile(BaseModel):
 
 
 class MatchEntrances(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    profile: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
+    model_config = ConfigDict(extra='allow')
+    profile: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)]] = None
+    code: Optional[str] = None
+    exclude: list | str | None = None
